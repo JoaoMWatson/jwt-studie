@@ -15,7 +15,21 @@ conn = pymongo.MongoClient(config.MONGO_CONNECT_STRING)
 db = conn['teste']
 
 
+def token_required(f):
+    @wraps(f)
+    def decorator(*args, **kwargs):
+        token = None
+        if 'x-access-token' in request.headers:
+            token = request.headers['x-access-token']
+        if not token:
+            return 'Acesso não autorizado!', 401
+        return f(*args, **kwargs)
+
+    return decorator
+
+
 @app.route('/test', methods=['GET'])
+@token_required
 def test():
     return 'Autorizado'
 
@@ -77,21 +91,21 @@ def login():
         'message': 'Invalid parameters',
         'token': ""
     }
-    
+
     try:
         coll = db['jwt-test']
         auth = request.form
-        
+
         if not auth or not auth.get('email') or not auth.get('password'):
             response['message'] = 'Informações invalidas'
             return response, 422
-        
+
         user = coll.find_one({'email': auth['email']})
-        
+
         if not user:
             response['message'] = 'Não autorizado'
             return response, 401
-        
+
         if check_password_hash(auth['password'], auth['password']):
             token = jwt.encode({
                 'user_id': user['user_id'],
